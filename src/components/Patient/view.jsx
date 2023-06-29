@@ -15,6 +15,7 @@ const ViewPatients = () => {
 
 
   useEffect(() => {
+    
     fetchPatients();
   }, []);
 
