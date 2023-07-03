@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Swal from 'sweetalert2'
 import axios from 'axios'
 import "./RecordList.css"
@@ -43,12 +43,12 @@ const RecordList = () => {
     }, [])
     const navigate = useNavigate();
     const backtoDashboard = () => {
-        navigate("/Dashboard")
+         navigate("/Dashboard")
     }
     return (
         <div className="container mt-4">
-            {isadd && <CreateRecord isadd={isadd} isedit={isedit} setIsadd={setIsadd} setIsedit={setIsedit} />}
-            {isedit && <EditRecord isadd={isadd} isedit={isedit} setIsadd={setIsadd} setIsedit={setIsedit} id={id} setId={setId} />}
+            {isadd && <CreateRecord isadd={isadd} isedit={isedit} setIsadd={setIsadd} setIsedit={setIsedit} fetchRecords={fetchRecords} />}
+            {isedit && <EditRecord isadd={isadd} isedit={isedit} setIsadd={setIsadd} setIsedit={setIsedit} id={id} setId={setId} fetchRecords={fetchRecords} />}
             {view && <ViewRecord view={view} setView={setView} record={selectedRecord} setSelectedRecord={setSelectedRecord} />}
             {!isedit && !isadd && !view && <div className="card">
                 <div className="card-title">
@@ -77,8 +77,8 @@ const RecordList = () => {
                                 records.map(record => (
                                     <tr key={record.id} className="text-center">
                                         <td>{record.id}</td>
-                                        <td>{record.patientId}</td>
-                                        <td>{record.doctorId}</td>
+                                        <td>{record.patient_id}</td>
+                                        <td>{record.doctor_id}</td>
                                         <td>{record.date}</td>
                                         <td >
                                             {/* <Link to={"/edit/"+record.id}><span className="edit-btn me-1">Edit</span></Link>  */}
@@ -109,14 +109,13 @@ const CreateRecord = (props) => {
     const [prescription, setPrescription] = useState('')
     const [error, setError] = useState("")
     const [checkValid, setCheckValid] = useState(false);
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         var formattedDate;
         if (date) { formattedDate = new Date(date).toISOString().split('T')[0]; }
         const record = {
-            patientId: patientId,
-            doctorId: doctorId,
+            patient_id: patientId,
+            doctor_id: doctorId,
             date: formattedDate,
             diagnosis: diagnosis,
             prescription: prescription,
@@ -130,6 +129,7 @@ const CreateRecord = (props) => {
                 showConfirmButton: false,
                 timer: 1500
             })
+            props.fetchRecords();
             setIsadd(false);
         })
     }
@@ -145,17 +145,23 @@ const CreateRecord = (props) => {
                     a = true;
                     console.log("Patient found with id : " + patientId)
                 }
+            }).catch((err) => {
+                console.log(err);
             })
-            await axios.get(`http://localhost:8080/staff/doctor/${doctorId}`).then((response) => {
+            await axios.get(`http://localhost:8080/staff/${doctorId}`).then((response) => {
                 console.log(response);
                 if (!response.data) {
                     b = false;
                     console.log("Doctor not found with id : " + doctorId);
                 }
                 else {
-                    b = true;
-                    console.log("Doctor found with id : " + doctorId)
+                    if (response.data.jobTitle.toLowerCase()==="doctor") {
+                        b = true;
+                        console.log("Doctor found with id : " + doctorId)
+                    }
                 }
+            }).catch((err) => {
+                console.log(err);
             })
             if (a === true && b === false) {
                 setError("Invalid Doctor Id : " + doctorId);
@@ -171,7 +177,6 @@ const CreateRecord = (props) => {
         else {
             return;
         }
-
     }
     return (
         <div className="mt-4">
@@ -274,8 +279,8 @@ const EditRecord = (props) => {
             await axios.get(`http://localhost:8080/medical-records/${id}`).then((response) => {
                 setValid(true);
                 setNewId(response.data.id)
-                setPatientId(response.data.patientId)
-                setDoctorId(response.data.doctorId)
+                setPatientId(response.data.patient_id)
+                setDoctorId(response.data.doctor_id)
                 setDate(response.data.date)
                 setDiagnosis(response.data.diagnosis)
                 setPrescription(response.data.prescription)
@@ -288,15 +293,14 @@ const EditRecord = (props) => {
         fetchRecord();
     }, [id]);
 
-    // const navigate = useNavigate();
 
     const handlesubmit = async (e) => {
         e.preventDefault();
         const formattedDate = new Date(date).toISOString().split('T')[0];
         const updatedRecord = {
             id: newid,
-            patientId: patientId,
-            doctorId: doctorId,
+            patient_id: patientId,
+            doctor_id: doctorId,
             diagnosis: diagnosis,
             date: formattedDate,
             prescription: prescription,
@@ -312,12 +316,14 @@ const EditRecord = (props) => {
             })
             setIsedit(false);
             setId('');
+            props.fetchRecords();
         }).catch((err) => {
             console.log(err);
         })
     }
 
-    const validate = async () => {
+    const validate = async (e) => {
+        e.preventDefault();
         var a = false, b = false;
         if (patientId.length !== 0 && doctorId.length !== 0) {
             await axios.get(`http://localhost:8080/patient/${parseInt(patientId)}`).then((response) => {
@@ -329,16 +335,22 @@ const EditRecord = (props) => {
                     a = true;
                     console.log("Patient found with id : " + patientId)
                 }
+            }).catch((err)=>{
+                console.log(err);
             })
-            await axios.get(`http://localhost:8080/staff/doctor/${doctorId}`).then((response) => {
+            await axios.get(`http://localhost:8080/staff/${doctorId}`).then((response) => {
                 if (!response.data) {
                     b = false;
                     console.log("Doctor not found with id : " + doctorId);
                 }
                 else {
-                    b = true;
-                    console.log("Doctor found with id : " + doctorId)
+                    if (response.data.jobTitle.toLowerCase()==="doctor") {
+                        b = true;
+                        console.log("Doctor found with id : " + doctorId)
+                    }
                 }
+            }).catch((err)=>{
+                console.log(err);
             })
             if (a === true && b === false) {
                 setError("Invalid Doctor Id : " + doctorId);
@@ -390,7 +402,7 @@ const EditRecord = (props) => {
                                             <input value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setCheckValid(false); setError("") }} className="form-control" required></input>
                                             <br />
                                             {!checkValid && <button className="btn btn-primary" onClick={validate} type="button">Continue</button>}
-                                            {/* {!checkValid && <Link to="/Dashboard/emr" className="btn btn-danger mt-1 ms-4">Cancel</Link>} */}
+
                                             {!checkValid && <span className="back-btn mt-1 ms-4" onClick={() => { setIsedit(false); setId('') }}>Cancel</span>}
                                             {!checkValid && <span style={{ color: "red", marginLeft: "5rem" }}>{error}</span>}
                                         </div>
@@ -431,7 +443,7 @@ const EditRecord = (props) => {
                                             <div className="col-lg-12">
                                                 <div className="mt-3">
                                                     <button className="view-btn me-3 mt-1" type="submit">Save</button>
-                                                    <Link to="/Dashboard/emr"><span className="back-btn">Back</span></Link>
+                                                    <button className="back-btn" onClick={()=>{setIsedit(false);setId('')}}>Back</button>
                                                 </div>
                                             </div>
                                         </>
@@ -458,10 +470,10 @@ const ViewRecord = (props) => {
 
     const fetchData = useCallback(async () => {
         try {
-            await axios.get(`http://localhost:8080/patient/${record.patientId}`).then((response) => {
+            await axios.get(`http://localhost:8080/patient/${record.patient_id}`).then((response) => {
                 setPatient(response.data);
             });
-            await axios.get(`http://localhost:8080/staff/doctor/${record.doctorId}`).then((response) => {
+            await axios.get(`http://localhost:8080/staff/${record.doctor_id}`).then((response) => {
                 setDoctor(response.data);
             })
         } catch (error) {
@@ -469,7 +481,7 @@ const ViewRecord = (props) => {
         }
     }, [record]);
     useEffect(() => {
-        if (record.patientId && record.doctorId) {
+        if (record.patient_id && record.doctor_id) {
             fetchData();
         }
     }, [record, fetchData]);
